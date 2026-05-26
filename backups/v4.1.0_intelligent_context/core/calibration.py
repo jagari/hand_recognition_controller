@@ -113,34 +113,6 @@ class CalibrationManager:
         logger.info(f"🚀 적용된 임계값 - ON: {self.on_threshold:.3f} / OFF: {self.off_threshold:.3f}")
         self.save_config()
 
-    def drift_update(self, ratio, is_pinched):
-        """실시간 사용 데이터를 기반으로 군집 중심을 미세하게 조정 (Evolutionary Intelligence)"""
-        learning_rate = 0.0005 # 매우 보수적인 학습률
-        
-        # 1. 중심점 이동
-        if is_pinched:
-            # 클릭 중일 때: 현재 비율이 평균보다 더 작으면(더 꽉 쥐면) 평균을 아래로 이동
-            if ratio < self.pinch_stats["mean"]:
-                self.pinch_stats["mean"] = (self.pinch_stats["mean"] * (1 - learning_rate)) + (ratio * learning_rate)
-        else:
-            # 손을 펴고 있을 때: 현재 비율이 평균보다 더 크면(더 크게 펴면) 평균을 위로 이동
-            if ratio > self.open_stats["mean"]:
-                self.open_stats["mean"] = (self.open_stats["mean"] * (1 - learning_rate)) + (ratio * learning_rate)
-
-        # 2. 임계값 재계산 (부드러운 적응)
-        new_on = self.pinch_stats["mean"] + (self.pinch_stats["std"] * 2.0)
-        new_off = self.open_stats["mean"] - (self.open_stats["std"] * 1.5)
-        
-        # 급격한 변화 방지 (Smoothing)
-        self.on_threshold = (self.on_threshold * 0.99) + (new_on * 0.01)
-        self.off_threshold = (self.off_threshold * 0.99) + (new_off * 0.01)
-
-        # 안전 장치 유지
-        if self.off_threshold - self.on_threshold < 0.08:
-            gap = self.open_stats["mean"] - self.pinch_stats["mean"]
-            self.on_threshold = self.pinch_stats["mean"] + (gap * 0.25)
-            self.off_threshold = self.open_stats["mean"] - (gap * 0.25)
-
     def save_config(self):
         config = {
             "on_threshold": float(self.on_threshold),

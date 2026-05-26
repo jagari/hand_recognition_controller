@@ -40,3 +40,6 @@ Thumbs.db
 *.log
 .env
 tempCodeRunnerFile.py
+
+# User Config
+config.json

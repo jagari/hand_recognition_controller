@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 def main():
-    logger.info("🚀 시스템 가동 (v7.0 Evolutionary Intelligence Engine)")
+    logger.info("🚀 시스템 가동 (v4.0 Intelligent Context Engine)")
     SHOW_DEBUG_WINDOW = True
 
     try:

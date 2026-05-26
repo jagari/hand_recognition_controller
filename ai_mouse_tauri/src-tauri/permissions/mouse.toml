@@ -1,0 +1,12 @@
+[[permission]]
+identifier = "allow-mouse-commands"
+description = "Allows the engine to control the mouse"
+commands.allow = [
+    "move_mouse",
+    "click_mouse",
+    "set_drag"
+]
+
+[default]
+description = "Default permissions for the AI Mouse app"
+permissions = ["allow-mouse-commands"]
