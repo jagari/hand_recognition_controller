@@ -19,8 +19,8 @@ class CalibrationManager:
         self.pinch_data = []
 
         # 🚀 황금 경계선 초기값
-        self.on_threshold = 0.18
-        self.off_threshold = 0.28
+        self.on_threshold = 0.25
+        self.off_threshold = 0.38
         
         # 분석 결과 리포트
         self.open_stats = {"mean": 0.4, "std": 0.05}
@@ -99,13 +99,13 @@ class CalibrationManager:
         self.open_stats = {"mean": float(o_mean), "std": float(o_std)}
         self.pinch_stats = {"mean": float(p_mean), "std": float(p_std)}
 
-        # 황금 경계선 도출
-        self.on_threshold = p_mean + (p_std * 2.0)
-        self.off_threshold = o_mean - (o_std * 1.5)
+        # 황금 경계선 도출 (gap ratio 기반)
+        gap = o_mean - p_mean
+        self.on_threshold = p_mean + (gap * 0.25)
+        self.off_threshold = p_mean + (gap * 0.45)
 
         # 안전 장치: 간격이 너무 좁으면 보정
         if self.off_threshold - self.on_threshold < 0.08:
-            gap = o_mean - p_mean
             self.on_threshold = p_mean + (gap * 0.25)
             self.off_threshold = o_mean - (gap * 0.25)
 
@@ -127,9 +127,10 @@ class CalibrationManager:
             if ratio > self.open_stats["mean"]:
                 self.open_stats["mean"] = (self.open_stats["mean"] * (1 - learning_rate)) + (ratio * learning_rate)
 
-        # 2. 임계값 재계산 (부드러운 적응)
-        new_on = self.pinch_stats["mean"] + (self.pinch_stats["std"] * 2.0)
-        new_off = self.open_stats["mean"] - (self.open_stats["std"] * 1.5)
+        # 2. 임계값 재계산 (부드러운 적응 - gap ratio 기반)
+        current_gap = self.open_stats["mean"] - self.pinch_stats["mean"]
+        new_on = self.pinch_stats["mean"] + (current_gap * 0.25)
+        new_off = self.pinch_stats["mean"] + (current_gap * 0.45)
         
         # 급격한 변화 방지 (Smoothing)
         self.on_threshold = (self.on_threshold * 0.99) + (new_on * 0.01)
@@ -137,9 +138,8 @@ class CalibrationManager:
 
         # 안전 장치 유지
         if self.off_threshold - self.on_threshold < 0.08:
-            gap = self.open_stats["mean"] - self.pinch_stats["mean"]
-            self.on_threshold = self.pinch_stats["mean"] + (gap * 0.25)
-            self.off_threshold = self.open_stats["mean"] - (gap * 0.25)
+            self.on_threshold = self.pinch_stats["mean"] + (current_gap * 0.25)
+            self.off_threshold = self.open_stats["mean"] - (current_gap * 0.25)
 
     def save_config(self):
         config = {
@@ -147,7 +147,8 @@ class CalibrationManager:
             "off_threshold": float(self.off_threshold),
             "open_stats": self.open_stats,
             "pinch_stats": self.pinch_stats,
-            "updated_at": time.strftime("%Y-%m-%d %H:%M:%S")
+            "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "is_metric": True  # 🚀 3D Metric Core flag
         }
         try:
             with open(self.config_path, "w") as f:
@@ -161,6 +162,17 @@ class CalibrationManager:
             try:
                 with open(self.config_path, "r") as f:
                     config = json.load(f)
+                
+                # 구버전 비메트릭 설정 파일 무효화 및 리셋
+                if not config.get("is_metric", False):
+                    logger.info("⚠️ 구버전 비메트릭 설정 파일 감지: 3D Metric 기반 설정으로 초기화합니다.")
+                    self.on_threshold = 0.18
+                    self.off_threshold = 0.28
+                    self.open_stats = {"mean": 0.4, "std": 0.05}
+                    self.pinch_stats = {"mean": 0.1, "std": 0.03}
+                    self.save_config()
+                    return
+                
                 self.on_threshold = config.get("on_threshold", self.on_threshold)
                 self.off_threshold = config.get("off_threshold", self.off_threshold)
                 self.open_stats = config.get("open_stats", self.open_stats)

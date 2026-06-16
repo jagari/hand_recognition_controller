@@ -32,6 +32,20 @@ def _image_capture_process(image_queue, stop_event):
                 lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
                 l, a, b = cv2.split(lab)
                 l = clahe.apply(l)
+                
+                # 🚀 [v8.0] 광량 적응형 감마 보정 (Adaptive Gamma Correction)
+                mean_l = np.mean(l)
+                if mean_l < 80:  # 너무 어두운 환경: 감마를 낮춰 디테일 부각 (gamma = 0.70)
+                    gamma = 0.7
+                    inv_gamma = 1.0 / gamma
+                    table = np.array([((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
+                    l = cv2.LUT(l, table)
+                elif mean_l > 180:  # 너무 밝은 눈부심 환경: 감마를 높여 대비 억제 (gamma = 1.50)
+                    gamma = 1.5
+                    inv_gamma = 1.0 / gamma
+                    table = np.array([((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
+                    l = cv2.LUT(l, table)
+
                 lab = cv2.merge((l, a, b))
                 frame = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
                 

@@ -14,7 +14,13 @@
       {
         "title": "ai_mouse_tauri",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "backgroundThrottling": "disabled",
+        "visibleOnAllWorkspaces": true,
+        "alwaysOnTop": false,
+        "decorations": true,
+        "transparent": false,
+        "resizable": true
       }
     ],
     "security": {

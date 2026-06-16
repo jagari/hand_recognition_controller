@@ -2,7 +2,7 @@ import cv2
 import mediapipe as mp
 
 class HandTracker:
-    def __init__(self, max_hands=1, complexity=1, det_conf=0.5, track_conf=0.5):
+    def __init__(self, max_hands=2, complexity=1, det_conf=0.7, track_conf=0.5):
         self.mp_hands = mp.solutions.hands
         self.mp_drawing = mp.solutions.drawing_utils
         self.hands = self.mp_hands.Hands(
