@@ -25,9 +25,16 @@
       </div>
       <nav class="nav-links">
         <a href="#features">핵심 기술</a>
+        <a href="#pipeline">동작 원리</a>
         <a href="#guide">사용 방법</a>
+        <a href="#changelog">업데이트 소식</a>
+        <a href="#faq">자주 묻는 질문</a>
       </nav>
       <div class="nav-action">
+        <a href="https://github.com/jagari/hand_recognition_controller" target="_blank" class="github-nav-btn">
+          <svg class="github-icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
+          <span>GitHub</span>
+        </a>
         <a href="#download" class="nav-btn">바로 설치</a>
       </div>
     </div>
@@ -226,6 +233,47 @@
       </div>
     </section>
 
+    <!-- Visual Pipeline Section -->
+    <section class="pipeline-section" id="pipeline">
+      <div class="section-title">
+        <h2>실시간 동작 메커니즘</h2>
+        <p>비디오 프레임 수집부터 마우스 제어까지의 초저지연 내부 프로세스</p>
+      </div>
+
+      <div class="pipeline-flow">
+        <div class="pipeline-step">
+          <div class="step-icon">📹</div>
+          <span class="step-badge">Step 01</span>
+          <h4>프레임 캡처 (60fps)</h4>
+          <p>사용자 웹캠 비디오 입력으로부터 실시간 프레임을 초당 60회 속도로 캡처합니다.</p>
+          <div class="flow-arrow">➡️</div>
+        </div>
+
+        <div class="pipeline-step">
+          <div class="step-icon">👁️</div>
+          <span class="step-badge">Step 02</span>
+          <h4>MediaPipe WASM 추론</h4>
+          <p>임베디드 AI 랜드마크 모델이 손가락 끝과 마디의 21개 3D 좌표를 20ms 내에 정밀 추적합니다.</p>
+          <div class="flow-arrow">➡️</div>
+        </div>
+
+        <div class="pipeline-step">
+          <div class="step-icon">⚙️</div>
+          <span class="step-badge">Step 03</span>
+          <h4>Aetheris 필터링 연동</h4>
+          <p>지연 보정(Predictive Kinematics) 및 Intention Gate 필터를 통해 손떨림과 오작동을 걸러냅니다.</p>
+          <div class="flow-arrow">➡️</div>
+        </div>
+
+        <div class="pipeline-step">
+          <div class="step-icon">🦀</div>
+          <span class="step-badge">Step 04</span>
+          <h4>Tauri IPC & OS 제어</h4>
+          <p>최종 정제된 동작 정보를 Rust 백엔드로 전송하고 Windows SendInput/macOS CoreGraphics를 통해 시스템 마우스를 정밀 기동합니다.</p>
+        </div>
+      </div>
+    </section>
+
     <!-- Easy Guide Section -->
     <section class="guide-section" id="guide">
       <div class="section-title">
@@ -249,6 +297,87 @@
           <h3>캘리브레이션 및 제어</h3>
           <p>키보드의 'C'를 눌러 손 펼침 및 오므리기 상태의 통계 보정을 마친 후, 허공에서 손을 움직여 마우스를 작동시킵니다.</p>
         </div>
+    </section>
+
+    <!-- Changelog Section -->
+    <section class="changelog-section" id="changelog">
+      <div class="section-title">
+        <h2>최신 업데이트 및 버전 기록</h2>
+        <p>God Hand 데스크톱 및 웹 자산의 기능 갱신 정보</p>
+      </div>
+
+      <div class="changelog-timeline">
+        <div class="changelog-item">
+          <div class="changelog-meta">
+            <span class="version-badge">v0.1.0 Stable</span>
+            <span class="changelog-date">2026.06.21</span>
+          </div>
+          <div class="changelog-body">
+            <h4>Tauri 크로스 플랫폼 대폭 강화 & 인터랙티브 포탈 구축</h4>
+            <ul>
+              <li><strong>macOS/Windows 단일 코드베이스 통합</strong>: Windows 전용 Win32 `SendInput` 고속 드라이버와 macOS 전용 `Enigo` 드라이버를 단일 Rust 컴파일 백엔드로 통합했습니다.</li>
+              <li><strong>창 숨김 갇힘 현상 방지</strong>: 전역 핫키(`Ctrl/Cmd + Shift + H`)와 작업 표시줄/메뉴 바의 <strong>시스템 트레이 아이콘</strong>(Show, Hide, Quit) 연동으로 숨김 모드에서 갇히지 않도록 안전 구조를 완성했습니다.</li>
+              <li><strong>다중 웹캠 선택 지원</strong>: 앱에서 외장 카메라를 동적으로 즉시 교체(Hot Swapping)할 수 있도록 드롭다운을 탑재했습니다.</li>
+              <li><strong>캘리브레이션 그래픽 HUD 적용</strong>: 'C' 키 보정 진행 시 🖐️(손 펴기) 및 👌(핀치) 형태의 가이드 실루엣 점선과 남은 4초의 원형 타이머 게이지를 Canvas 내에 실시간 렌더링합니다.</li>
+              <li><strong>Fist Scroll 기능 탑재</strong>: 주먹을 쥐고 위아래로 움직여 화면을 위아래로 스크롤할 수 있는 기능 추가 및 안내 가이드를 보강했습니다.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="faq-section" id="faq">
+      <div class="section-title">
+        <h2>자주 묻는 질문 (FAQ)</h2>
+        <p>설치 및 사용 중에 발생할 수 있는 주요 사항에 대한 가이드</p>
+      </div>
+
+      <div class="faq-accordion">
+        <details class="faq-item" open>
+          <summary class="faq-question">
+            <span>Q. 앱을 다운로드했는데 "손상되어 열 수 없다"고 뜹니다. 어떻게 하나요?</span>
+            <span class="faq-arrow">▼</span>
+          </summary>
+          <div class="faq-answer">
+            <p>macOS의 자체 보안 정책(Gatekeeper)에 의해 서명되지 않은 외부 다운로드 앱 실행이 일시 제한된 것입니다. 
+            앱을 <strong>응용 프로그램(Applications)</strong> 폴더로 이동한 후, Mac 터미널을 실행하여 아래 명령어를 입력하시면 즉시 해제됩니다.</p>
+            <code>xattr -cr /Applications/ai_mouse_tauri.app</code>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-question">
+            <span>Q. 프로그램이 켜졌고 카메라로 손도 잘 인식하는데, 마우스가 전혀 움직이지 않습니다.</span>
+            <span class="faq-arrow">▼</span>
+          </summary>
+          <div class="faq-answer">
+            <p>마우스 제어를 위해 macOS의 <strong>손쉬운 사용(Accessibility)</strong> 권한이 필요합니다. 
+            <code>시스템 설정 &gt; 개인정보 보호 및 보안 &gt; 손쉬운 사용</code>에 들어가셔서 <code>ai_mouse_tauri</code> 항목을 활성화해 주세요.</p>
+            <p>만약 이미 켜져 있다면, 앱이 업데이트되면서 권한 캐시가 꼬인 상태일 수 있으므로 <strong>하단의 마이너스(-) 버튼을 눌러 목록에서 완전히 지웠다가 앱을 재실행하여 다시 등록</strong>해 주세요.</p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-question">
+            <span>Q. 윈도우(Windows) 실행 시 PC 보호 경고창(SmartScreen)이 나옵니다.</span>
+            <span class="faq-arrow">▼</span>
+          </summary>
+          <div class="faq-answer">
+            <p>Microsoft Defender가 출처를 확인하지 못해 경고하는 것입니다. 경고창에서 <strong>[추가 정보]</strong>를 클릭하신 후 아래에 활성화되는 <strong>[실행]</strong> 버튼을 누르면 정상 구동됩니다.</p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-question">
+            <span>Q. 스크롤이나 클릭 인식 기준을 저의 손 크기에 맞추고 싶습니다.</span>
+            <span class="faq-arrow">▼</span>
+          </summary>
+          <div class="faq-answer">
+            <p>프로그램 실행 상태에서 키보드의 <strong>'C' 키</strong>를 누르면 캘리브레이션 모드가 시작됩니다. 
+            화면에 그려지는 🖐️ 손바닥과 👌 핀치 가이드 라인에 맞추어 각각 4초간 대기하면 본인의 손 가변 비율에 맞춰 자동으로 감도 한계선(Threshold)이 세팅 및 학습됩니다.</p>
+          </div>
+        </details>
       </div>
     </section>
   </main>
