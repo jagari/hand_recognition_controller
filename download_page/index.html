@@ -389,6 +389,69 @@
     </div>
   </footer>
 
+  <!-- macOS Gatekeeper Guide Modal -->
+  <div class="modal-overlay" id="mac-guide-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>🍏 macOS 설치 및 보안 해제 가이드</h3>
+        <button class="modal-close-btn" id="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">God Hand는 Apple Developer Program ($99/년) 비등록 앱이므로, 최초 실행 시 macOS 보안 시스템(Gatekeeper)에 의해 실행이 차단됩니다. 아래의 <strong>두 가지 방법 중 하나</strong>를 선택하여 10초 만에 해제할 수 있습니다.</p>
+        
+        <div class="modal-tabs">
+          <button class="modal-tab-btn active" data-modal-tab="modal-click-guide">방법 1: 클릭 몇 번으로 해제 (추천)</button>
+          <button class="modal-tab-btn" data-modal-tab="modal-terminal-guide">방법 2: 터미널 명령어로 해제</button>
+        </div>
+        
+        <div class="modal-tab-content active" id="modal-click-guide">
+          <ol class="step-list">
+            <li>
+              <span class="step-indicator">1</span>
+              <p>다운로드한 <code>.dmg</code> 파일을 열고, <strong>ai_mouse_tauri</strong> 앱을 <strong>응용 프로그램(Applications)</strong> 폴더로 드래그하여 복사합니다.</p>
+            </li>
+            <li>
+              <span class="step-indicator">2</span>
+              <p>앱을 실행했을 때 "손상되어 열 수 없다"는 경고창이 뜨면 <strong>[취소]</strong>를 누릅니다.</p>
+            </li>
+            <li>
+              <span class="step-indicator">3</span>
+              <p>Mac의 <code>시스템 설정 > 개인정보 보호 및 보안</code> 메뉴로 이동합니다.</p>
+            </li>
+            <li>
+              <span class="step-indicator">4</span>
+              <p>보안 섹션으로 스크롤을 내리면 <em>"ai_mouse_tauri의 실행이 차단되었습니다"</em>라는 문구 옆에 활성화된 <strong>[확인 없이 열기]</strong> 버튼을 클릭하고 암호를 입력하면 즉시 실행됩니다.</p>
+            </li>
+          </ol>
+        </div>
+        
+        <div class="modal-tab-content" id="modal-terminal-guide">
+          <ol class="step-list">
+            <li>
+              <span class="step-indicator">1</span>
+              <p>앱을 <strong>응용 프로그램(Applications)</strong> 폴더로 복사합니다.</p>
+            </li>
+            <li>
+              <span class="step-indicator">2</span>
+              <p>Mac 터미널(Terminal) 앱을 켭니다.</p>
+            </li>
+            <li>
+              <span class="step-indicator">3</span>
+              <p>아래 명령어를 복사하여 붙여넣고 엔터(Enter)를 입력하면 즉시 제한이 해제됩니다.</p>
+              <div class="code-box">
+                <code id="cmd-text">xattr -cr /Applications/ai_mouse_tauri.app</code>
+                <button class="copy-btn" id="copy-cmd-btn">복사하기</button>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-primary-btn" id="modal-confirm-btn">이해했습니다 & 다운로드 시작</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Script logic -->
   <script src="script.js?v=1.1"></script>
 </body>

@@ -2,6 +2,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   detectOSAndUpdateButton();
   initPortal();
+  initMacModal();
 });
 
 function detectOSAndUpdateButton() {
@@ -523,4 +524,94 @@ function initMockupScreen() {
   }
 
   loop();
+}
+
+// 🍏 macOS Gatekeeper Guide Modal
+function initMacModal() {
+  const modal = document.getElementById("mac-guide-modal");
+  const modalCloseBtn = document.getElementById("modal-close-btn");
+  const modalConfirmBtn = document.getElementById("modal-confirm-btn");
+  const copyCmdBtn = document.getElementById("copy-cmd-btn");
+  let pendingDownloadUrl = "";
+
+  function openMacModal(url, event) {
+    if (url && url.endsWith(".dmg")) {
+      event.preventDefault();
+      pendingDownloadUrl = url;
+      if (modal) modal.classList.add("active");
+    }
+  }
+
+  // Intercept main button clicks
+  const mainBtn = document.getElementById("download-btn");
+  if (mainBtn) {
+    mainBtn.addEventListener("click", (e) => {
+      const url = mainBtn.getAttribute("href");
+      openMacModal(url, e);
+    });
+  }
+
+  // Intercept alternative links
+  const linkMacArm = document.getElementById("link-mac-arm");
+  if (linkMacArm) {
+    linkMacArm.addEventListener("click", (e) => {
+      const url = linkMacArm.getAttribute("href");
+      openMacModal(url, e);
+    });
+  }
+
+  const linkMacIntel = document.getElementById("link-mac-intel");
+  if (linkMacIntel) {
+    linkMacIntel.addEventListener("click", (e) => {
+      const url = linkMacIntel.getAttribute("href");
+      openMacModal(url, e);
+    });
+  }
+
+  // Modal actions
+  if (modalCloseBtn) {
+    modalCloseBtn.addEventListener("click", () => {
+      if (modal) modal.classList.remove("active");
+    });
+  }
+
+  if (modalConfirmBtn) {
+    modalConfirmBtn.addEventListener("click", () => {
+      if (modal) modal.classList.remove("active");
+      if (pendingDownloadUrl) {
+        window.location.href = pendingDownloadUrl;
+      }
+    });
+  }
+
+  // Modal Tab switching
+  const modalTabs = document.querySelectorAll(".modal-tab-btn");
+  const modalTabContents = document.querySelectorAll(".modal-tab-content");
+
+  modalTabs.forEach(tab => {
+    tab.addEventListener("click", () => {
+      modalTabs.forEach(t => t.classList.remove("active"));
+      modalTabContents.forEach(c => c.classList.remove("active"));
+
+      tab.classList.add("active");
+      const targetId = tab.getAttribute("data-modal-tab");
+      const activeContent = document.getElementById(targetId);
+      if (activeContent) {
+        activeContent.classList.add("active");
+      }
+    });
+  });
+
+  // Copy command button
+  if (copyCmdBtn) {
+    copyCmdBtn.addEventListener("click", () => {
+      const cmdText = document.getElementById("cmd-text").textContent;
+      navigator.clipboard.writeText(cmdText).then(() => {
+        copyCmdBtn.textContent = "복사 완료!";
+        setTimeout(() => {
+          copyCmdBtn.textContent = "복사하기";
+        }, 2000);
+      });
+    });
+  }
 }
