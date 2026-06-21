@@ -60,6 +60,76 @@ function detectOSAndUpdateButton() {
     titleSpan.textContent = "최신 릴리즈 다운로드";
     subtitleSpan.textContent = "모든 OS 플랫폼 아카이브 지원";
   }
+
+  // 🚀 깃허브 Releases 최신 업로드 자산 동적 연결 시도 (비동기)
+  upgradeLinksToGitHubReleases();
+}
+
+async function upgradeLinksToGitHubReleases() {
+  try {
+    const response = await fetch("https://api.github.com/repos/jagari/hand_recognition_controller/releases/latest");
+    if (!response.ok) return;
+    const data = await response.json();
+    if (!data.assets || data.assets.length === 0) return;
+
+    let winLink = "";
+    let macArmLink = "";
+    let macIntelLink = "";
+
+    data.assets.forEach(asset => {
+      const name = asset.name.toLowerCase();
+      const url = asset.browser_download_url;
+
+      if (name.endsWith(".exe") || name.endsWith(".msi")) {
+        winLink = url;
+      } else if (name.endsWith(".dmg")) {
+        if (name.includes("aarch64") || name.includes("arm64")) {
+          macArmLink = url;
+        } else {
+          macIntelLink = url;
+        }
+      }
+    });
+
+    const linkWin = document.getElementById("link-win");
+    const linkMacArm = document.getElementById("link-mac-arm");
+    const linkMacIntel = document.getElementById("link-mac-intel");
+
+    if (winLink && linkWin) linkWin.href = winLink;
+    if (macArmLink && linkMacArm) linkMacArm.href = macArmLink;
+    if (macIntelLink && linkMacIntel) linkMacIntel.href = macIntelLink;
+
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const btn = document.getElementById("download-btn");
+    if (btn) {
+      if (userAgent.indexOf("mac") !== -1) {
+        let arch = "intel";
+        try {
+          const canvas = document.createElement("canvas");
+          const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+          if (gl) {
+            const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
+            if (debugInfo) {
+              const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL).toLowerCase();
+              if (renderer.includes("apple") || renderer.includes("m1") || renderer.includes("m2") || renderer.includes("m3") || renderer.includes("m4") || renderer.includes("silicon")) {
+                arch = "arm64";
+              }
+            }
+          }
+        } catch (e) {}
+
+        if (arch === "arm64" && macArmLink) {
+          btn.href = macArmLink;
+        } else if (macIntelLink) {
+          btn.href = macIntelLink;
+        }
+      } else if (userAgent.indexOf("win") !== -1 && winLink) {
+        btn.href = winLink;
+      }
+    }
+  } catch (err) {
+    console.warn("GitHub Release API 호출 실패, 로컬 대체 파일 사용:", err);
+  }
 }
 
 // 🖐️ God Hand Interactive Portal Controls
