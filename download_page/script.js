@@ -11,9 +11,9 @@ function detectOSAndUpdateButton() {
   const titleSpan = document.getElementById("btn-title");
   const subtitleSpan = document.getElementById("btn-subtitle");
   
-  const winLink = "./files/ai_mouse_tauri_0.1.0_x64-setup.exe";
-  const macArmLink = "./files/ai_mouse_tauri_0.1.0_aarch64.dmg";
-  const macIntelLink = "./files/ai_mouse_tauri_0.1.0_x64.dmg";
+  const winLink = "https://github.com/cksdyd3786/god-hand/raw/main/ai_mouse_tauri/src-tauri/target/release/bundle/nsis/God%20Hand_0.1.0_x64-setup.exe";
+  const macArmLink = "https://github.com/jagari/hand_recognition_controller/raw/develop/download_page/files/ai_mouse_tauri_0.1.0_aarch64.dmg";
+  const macIntelLink = "https://github.com/jagari/hand_recognition_controller/raw/develop/download_page/files/ai_mouse_tauri_0.1.0_x64.dmg";
   
   // Set default links on the small alternative text links
   if (document.getElementById("link-win")) document.getElementById("link-win").href = winLink;
@@ -66,70 +66,96 @@ function detectOSAndUpdateButton() {
 }
 
 async function upgradeLinksToGitHubReleases() {
+  const linkWin = document.getElementById("link-win");
+  const linkMacArm = document.getElementById("link-mac-arm");
+  const linkMacIntel = document.getElementById("link-mac-intel");
+  const btn = document.getElementById("download-btn");
+  const userAgent = window.navigator.userAgent.toLowerCase();
+
+  // 1. Fetch macOS Releases from jagari/hand_recognition_controller
   try {
     const response = await fetch("https://api.github.com/repos/jagari/hand_recognition_controller/releases/latest");
-    if (!response.ok) return;
-    const data = await response.json();
-    if (!data.assets || data.assets.length === 0) return;
+    if (response.ok) {
+      const data = await response.json();
+      if (data.assets && data.assets.length > 0) {
+        let macArmLink = "";
+        let macIntelLink = "";
 
-    let winLink = "";
-    let macArmLink = "";
-    let macIntelLink = "";
-
-    data.assets.forEach(asset => {
-      const name = asset.name.toLowerCase();
-      const url = asset.browser_download_url;
-
-      if (name.endsWith(".exe") || name.endsWith(".msi")) {
-        winLink = url;
-      } else if (name.endsWith(".dmg")) {
-        if (name.includes("aarch64") || name.includes("arm64")) {
-          macArmLink = url;
-        } else {
-          macIntelLink = url;
-        }
-      }
-    });
-
-    const linkWin = document.getElementById("link-win");
-    const linkMacArm = document.getElementById("link-mac-arm");
-    const linkMacIntel = document.getElementById("link-mac-intel");
-
-    if (winLink && linkWin) linkWin.href = winLink;
-    if (macArmLink && linkMacArm) linkMacArm.href = macArmLink;
-    if (macIntelLink && linkMacIntel) linkMacIntel.href = macIntelLink;
-
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const btn = document.getElementById("download-btn");
-    if (btn) {
-      if (userAgent.indexOf("mac") !== -1) {
-        let arch = "intel";
-        try {
-          const canvas = document.createElement("canvas");
-          const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
-          if (gl) {
-            const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
-            if (debugInfo) {
-              const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL).toLowerCase();
-              if (renderer.includes("apple") || renderer.includes("m1") || renderer.includes("m2") || renderer.includes("m3") || renderer.includes("m4") || renderer.includes("silicon")) {
-                arch = "arm64";
-              }
+        data.assets.forEach(asset => {
+          const name = asset.name.toLowerCase();
+          const url = asset.browser_download_url;
+          if (name.endsWith(".dmg")) {
+            if (name.includes("aarch64") || name.includes("arm64")) {
+              macArmLink = url;
+            } else {
+              macIntelLink = url;
             }
           }
-        } catch (e) {}
+        });
 
-        if (arch === "arm64" && macArmLink) {
-          btn.href = macArmLink;
-        } else if (macIntelLink) {
-          btn.href = macIntelLink;
+        if (macArmLink && linkMacArm) {
+          linkMacArm.href = macArmLink;
+          if (userAgent.indexOf("mac") !== -1 && isAppleSilicon() && btn) {
+            btn.href = macArmLink;
+          }
         }
-      } else if (userAgent.indexOf("win") !== -1 && winLink) {
-        btn.href = winLink;
+        if (macIntelLink && linkMacIntel) {
+          linkMacIntel.href = macIntelLink;
+          if (userAgent.indexOf("mac") !== -1 && !isAppleSilicon() && btn) {
+            btn.href = macIntelLink;
+          }
+        }
       }
     }
   } catch (err) {
-    console.warn("GitHub Release API 호출 실패, 로컬 대체 파일 사용:", err);
+    console.warn("macOS GitHub Release API 호출 실패:", err);
   }
+
+  // 2. Fetch Windows Releases from cksdyd3786/god-hand
+  try {
+    const response = await fetch("https://api.github.com/repos/cksdyd3786/god-hand/releases/latest");
+    if (response.ok) {
+      const data = await response.json();
+      if (data.assets && data.assets.length > 0) {
+        let winLink = "";
+
+        data.assets.forEach(asset => {
+          const name = asset.name.toLowerCase();
+          const url = asset.browser_download_url;
+          if (name.endsWith(".exe") || name.endsWith(".msi")) {
+            winLink = url;
+          }
+        });
+
+        if (winLink && linkWin) {
+          linkWin.href = winLink;
+          if (userAgent.indexOf("win") !== -1 && btn) {
+            btn.href = winLink;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Windows GitHub Release API 호출 실패:", err);
+  }
+}
+
+// Helper function to detect Apple Silicon
+function isAppleSilicon() {
+  try {
+    const canvas = document.createElement("canvas");
+    const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+    if (gl) {
+      const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
+      if (debugInfo) {
+        const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL).toLowerCase();
+        if (renderer.includes("apple") || renderer.includes("m1") || renderer.includes("m2") || renderer.includes("m3") || renderer.includes("m4") || renderer.includes("silicon")) {
+          return true;
+        }
+      }
+    }
+  } catch (e) {}
+  return false;
 }
 
 // 🖐️ God Hand Interactive Portal Controls
