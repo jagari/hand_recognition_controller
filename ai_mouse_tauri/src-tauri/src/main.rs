@@ -3,6 +3,9 @@
 
 use enigo::{Enigo, MouseControllable, MouseButton, KeyboardControllable, Key};
 use tauri::Manager;
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{TrayIconBuilder, TrayIconEvent};
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, Modifiers, Code, ShortcutState};
 
 #[tauri::command]
 fn move_mouse(x: i32, y: i32) {
@@ -92,15 +95,109 @@ fn trigger_mission_control() {
     enigo.key_up(Key::Control);
 }
 
+#[tauri::command]
+fn save_config(config_json: String) -> Result<(), String> {
+    use std::fs::File;
+    use std::io::Write;
+    let mut file = File::create("config.json").map_err(|e| e.to_string())?;
+    file.write_all(config_json.as_bytes()).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn load_config() -> Option<String> {
+    use std::fs::File;
+    use std::io::Read;
+    let mut file = File::open("config.json").ok()?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).ok()?;
+    Some(contents)
+}
+
 fn main() {
+    let shortcut_plugin = tauri_plugin_global_shortcut::Builder::new()
+        .with_handler(|app, _shortcut, event| {
+            if event.state() == ShortcutState::Pressed {
+                if let Some(window) = app.get_webview_window("main") {
+                    let visible = window.is_visible().unwrap_or(false);
+                    if visible {
+                        let _ = window.hide();
+                    } else {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                }
+            }
+        })
+        .build();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(shortcut_plugin)
         .setup(|app| {
             // macOS 환경에서 앱 기동 시 모든 가상 데스크톱(Spaces)에 창이 연동되도록 강제 설정합니다.
             #[cfg(target_os = "macos")]
             for window in app.webview_windows().values() {
                 let _ = window.set_visible_on_all_workspaces(true);
             }
+
+            // 전역 단축키 등록
+            let ctrl_shift_h = Shortcut::new(
+                Some(Modifiers::CONTROL | Modifiers::SHIFT),
+                Code::KeyH,
+            );
+            let cmd_shift_h = Shortcut::new(
+                Some(Modifiers::SUPER | Modifiers::SHIFT),
+                Code::KeyH,
+            );
+            let _ = app.global_shortcut().register(ctrl_shift_h);
+            let _ = app.global_shortcut().register(cmd_shift_h);
+
+            // 시스템 트레이 구축 (Menu & Actions)
+            let show_item = MenuItem::with_id(app, "show", "앱 열기 (Show Window)", true, None::<&str>)?;
+            let hide_item = MenuItem::with_id(app, "hide", "앱 숨기기 (Hide Window)", true, None::<&str>)?;
+            let quit_item = MenuItem::with_id(app, "quit", "앱 종료 (Quit)", true, None::<&str>)?;
+            let tray_menu = Menu::with_items(app, &[&show_item, &hide_item, &quit_item])?;
+
+            let mut tray_builder = TrayIconBuilder::new().menu(&tray_menu);
+            if let Some(icon) = app.default_window_icon() {
+                tray_builder = tray_builder.icon(icon.clone());
+            }
+
+            let _tray = tray_builder
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "hide" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.hide();
+                        }
+                    }
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click { button_state: _, .. } = event {
+                        let app = tray.app_handle();
+                        if let Some(window) = app.get_webview_window("main") {
+                            let visible = window.is_visible().unwrap_or(false);
+                            if visible {
+                                let _ = window.hide();
+                            } else {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
+                        }
+                    }
+                })
+                .build(app)?;
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -108,7 +205,9 @@ fn main() {
             click_mouse, 
             set_drag,
             scroll_mouse,
-            trigger_mission_control
+            trigger_mission_control,
+            save_config,
+            load_config
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

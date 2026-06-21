@@ -1,7 +1,7 @@
 // OS Detection & Button Update
 document.addEventListener("DOMContentLoaded", () => {
   detectOSAndUpdateButton();
-  initHandSimulator();
+  initPortal();
 });
 
 function detectOSAndUpdateButton() {
@@ -11,18 +11,43 @@ function detectOSAndUpdateButton() {
   const titleSpan = document.getElementById("btn-title");
   const subtitleSpan = document.getElementById("btn-subtitle");
   
-  const winLink = "https://github.com/jagari/hand_recognition_controller/releases/download/v0.1.0/ai_mouse_tauri_0.1.0_x64-setup.exe";
-  const macLink = "https://github.com/jagari/hand_recognition_controller/releases/download/v0.1.0/ai_mouse_tauri_0.1.0_x64.dmg";
+  const winLink = "./files/ai_mouse_tauri_0.1.0_x64-setup.exe";
+  const macArmLink = "./files/ai_mouse_tauri_0.1.0_aarch64.dmg";
+  const macIntelLink = "./files/ai_mouse_tauri_0.1.0_x64.dmg";
   
   // Set default links on the small alternative text links
-  document.getElementById("link-win").href = winLink;
-  document.getElementById("link-mac").href = macLink;
+  if (document.getElementById("link-win")) document.getElementById("link-win").href = winLink;
+  if (document.getElementById("link-mac-arm")) document.getElementById("link-mac-arm").href = macArmLink;
+  if (document.getElementById("link-mac-intel")) document.getElementById("link-mac-intel").href = macIntelLink;
 
   if (userAgent.indexOf("mac") !== -1) {
-    btn.href = macLink;
-    iconSpan.textContent = "🍏";
-    titleSpan.textContent = "macOS용 다운로드 (.dmg)";
-    subtitleSpan.textContent = "Intel & Apple Silicon 범용 가속 빌드 v0.1.0";
+    // Detect Apple Silicon vs Intel
+    let arch = "intel";
+    try {
+      const canvas = document.createElement("canvas");
+      const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+      if (gl) {
+        const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
+        if (debugInfo) {
+          const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL).toLowerCase();
+          if (renderer.includes("apple") || renderer.includes("m1") || renderer.includes("m2") || renderer.includes("m3") || renderer.includes("m4") || renderer.includes("silicon")) {
+            arch = "arm64";
+          }
+        }
+      }
+    } catch (e) {}
+
+    if (arch === "arm64") {
+      btn.href = macArmLink;
+      iconSpan.textContent = "🍏";
+      titleSpan.textContent = "macOS용 다운로드 (.dmg)";
+      subtitleSpan.textContent = "Apple Silicon 전용 빌드 v0.1.0";
+    } else {
+      btn.href = macIntelLink;
+      iconSpan.textContent = "🍏";
+      titleSpan.textContent = "macOS용 다운로드 (.dmg)";
+      subtitleSpan.textContent = "Intel CPU 전용 빌드 v0.1.0";
+    }
   } else if (userAgent.indexOf("win") !== -1) {
     btn.href = winLink;
     iconSpan.textContent = "🪟";
@@ -37,309 +62,369 @@ function detectOSAndUpdateButton() {
   }
 }
 
-// 🖐️ Interactive 3D Hand Simulator
-function initHandSimulator() {
-  const canvas = document.getElementById("hand-canvas");
-  const ctx = canvas.getContext("2d");
-  const container = canvas.parentElement;
-  const ripple = document.getElementById("click-ripple");
-  const hud = document.getElementById("hud-status");
+// 🖐️ God Hand Interactive Portal Controls
+function initPortal() {
+  // 1. Tab Switching Control
+  const tabs = document.querySelectorAll(".tab-btn");
+  const contents = document.querySelectorAll(".portal-tab-content");
 
-  let width = (canvas.width = container.clientWidth);
-  let height = (canvas.height = container.clientHeight);
+  tabs.forEach(tab => {
+    tab.addEventListener("click", () => {
+      // Deactivate all
+      tabs.forEach(t => t.classList.remove("active"));
+      contents.forEach(c => c.classList.remove("active"));
 
-  window.addEventListener("resize", () => {
-    width = canvas.width = container.clientWidth;
-    height = canvas.height = container.clientHeight;
+      // Activate clicked
+      tab.classList.add("active");
+      const targetId = tab.getAttribute("data-tab");
+      const activeContent = document.getElementById(targetId);
+      if (activeContent) {
+        activeContent.classList.add("active");
+        
+        // Trigger resize / canvas setup if mockup tab is opened
+        if (targetId === "tab-mockup") {
+          window.dispatchEvent(new Event("resize"));
+          const stopBtn = document.getElementById("stop-diag-btn");
+          if (stopBtn && stopBtn.style.display !== "none") {
+            stopBtn.click();
+          }
+        }
+      }
+    });
   });
 
-  // Target mouse coordinates
+  // OS Info Telemetry Auto Detect
+  const telOs = document.getElementById("tel-os");
+  if (telOs) {
+    const platform = window.navigator.platform || "";
+    if (platform.toLowerCase().includes("mac")) {
+      telOs.textContent = "macOS (" + (navigator.userAgent.includes("Macintosh") ? "Intel & Apple Silicon" : "Universal") + ")";
+    } else if (platform.toLowerCase().includes("win")) {
+      telOs.textContent = "Windows (x64)";
+    } else {
+      telOs.textContent = platform || "Linux / Unknown OS";
+    }
+  }
+
+  // 2. Tab 1: Webcam Diagnostics Logic
+  const startDiagBtn = document.getElementById("start-diag-btn");
+  const stopDiagBtn = document.getElementById("stop-diag-btn");
+  const webcamVideo = document.getElementById("webcam-video");
+  const viewportPlaceholder = document.getElementById("viewport-placeholder");
+  const viewportOverlay = document.getElementById("viewport-overlay");
+  const diagBadge = document.getElementById("diag-badge");
+  const telCam = document.getElementById("tel-cam");
+  const telRes = document.getElementById("tel-res");
+  const telAi = document.getElementById("tel-ai");
+
+  let webcamStream = null;
+
+  if (startDiagBtn) {
+    startDiagBtn.addEventListener("click", async () => {
+      try {
+        startDiagBtn.textContent = "카메라 연결 시도 중...";
+        
+        webcamStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 640, height: 480, facingMode: "user" }
+        });
+
+        // Binding stream
+        webcamVideo.srcObject = webcamStream;
+        webcamVideo.style.display = "block";
+        viewportPlaceholder.style.display = "none";
+        viewportOverlay.style.display = "block";
+        if (stopDiagBtn) {
+          stopDiagBtn.style.display = "flex";
+        }
+
+        diagBadge.textContent = "ACTIVE";
+        diagBadge.className = "status-badge active";
+
+        telCam.textContent = "CONNECTED (60FPS)";
+        telAi.textContent = "ACTIVE (READY)";
+        
+        // Retrieve stream properties
+        webcamVideo.onloadedmetadata = () => {
+          const w = webcamVideo.videoWidth;
+          const h = webcamVideo.videoHeight;
+          telRes.textContent = `${w} x ${h}`;
+        };
+      } catch (err) {
+        console.error("Camera Diagnostics Failed:", err);
+        startDiagBtn.textContent = "웹캠 진단 다시 시작";
+        
+        diagBadge.textContent = "ERROR";
+        diagBadge.className = "status-badge error";
+
+        telCam.textContent = "DISCONNECTED / RESTRICTED";
+        telAi.textContent = "FAILED";
+        
+        // Show error notice in placeholder
+        const pTitle = viewportPlaceholder.querySelector(".placeholder-title");
+        const pSub = viewportPlaceholder.querySelector(".placeholder-sub");
+        if (pTitle) pTitle.textContent = "카메라 연결에 실패했습니다.";
+        if (pSub) pSub.textContent = "브라우저 카메라 접근 권한을 확인하시거나,\n연결된 웹캠 기기가 다른 앱에서 사용 중인지 체크해 주세요.";
+      }
+    });
+  }
+
+  if (stopDiagBtn) {
+    stopDiagBtn.addEventListener("click", () => {
+      if (webcamStream) {
+        webcamStream.getTracks().forEach(track => track.stop());
+        webcamStream = null;
+      }
+      webcamVideo.srcObject = null;
+      webcamVideo.style.display = "none";
+      viewportPlaceholder.style.display = "flex";
+      viewportOverlay.style.display = "none";
+      stopDiagBtn.style.display = "none";
+
+      diagBadge.textContent = "STANDBY";
+      diagBadge.className = "status-badge";
+      
+      telCam.textContent = "NOT CONNECTED";
+      telRes.textContent = "N/A";
+      telAi.textContent = "STANDBY";
+      
+      startDiagBtn.textContent = "웹캠 진단 시작";
+    });
+  }
+
+  // 3. Tab 2: Tauri GUI App Mockup Simulator
+  initMockupScreen();
+}
+
+function initMockupScreen() {
+  const canvas = document.getElementById("mockup-screen-canvas");
+  if (!canvas) return;
+  
+  const ctx = canvas.getContext("2d");
+  const screenArea = canvas.parentElement;
+  
+  // UI controls
+  const sensitivityInput = document.getElementById("param-sensitivity");
+  const sensitivityValueText = document.getElementById("val-sensitivity");
+  const togglePredictive = document.getElementById("param-predictive");
+  const toggleSniper = document.getElementById("param-sniper");
+  const toggleGate = document.getElementById("param-gate");
+  const screenHud = document.getElementById("screen-hud-status");
+
+  let width = (canvas.width = screenArea.clientWidth);
+  let height = (canvas.height = screenArea.clientHeight);
+
+  window.addEventListener("resize", () => {
+    width = canvas.width = screenArea.clientWidth;
+    height = canvas.height = screenArea.clientHeight;
+  });
+
+  // Simulator target cursor position
   let mouse = { x: width / 2, y: height / 2 };
   let currentTarget = { x: width / 2, y: height / 2 };
   let isMouseDown = false;
+  let isMouseOver = false;
 
-  // Track cursor coordinates
-  container.addEventListener("mousemove", (e) => {
-    const rect = container.getBoundingClientRect();
+  // Track pointer interaction within screen area
+  screenArea.addEventListener("mousemove", (e) => {
+    const rect = screenArea.getBoundingClientRect();
     mouse.x = e.clientX - rect.left;
     mouse.y = e.clientY - rect.top;
+    isMouseOver = true;
   });
 
-  container.addEventListener("mousedown", (e) => {
+  screenArea.addEventListener("mouseleave", () => {
+    isMouseOver = false;
+  });
+
+  screenArea.addEventListener("mousedown", () => {
     isMouseDown = true;
-    hud.textContent = "STATE: L-PINCH (LEFT CLICK)";
-    hud.style.color = "#10B981";
-    hud.style.background = "rgba(16, 185, 129, 0.15)";
-    hud.style.borderColor = "rgba(16, 185, 129, 0.4)";
-
-    // Trigger ripple
-    const rect = container.getBoundingClientRect();
-    const rippleX = e.clientX - rect.left;
-    const rippleY = e.clientY - rect.top;
-    
-    ripple.style.left = `${rippleX}px`;
-    ripple.style.top = `${rippleY}px`;
-    ripple.classList.remove("animate");
-    void ripple.offsetWidth; // Trigger reflow to restart animation
-    ripple.classList.add("animate");
   });
 
-  container.addEventListener("mouseup", () => {
+  screenArea.addEventListener("mouseup", () => {
     isMouseDown = false;
-    hud.textContent = "STATE: ACTIVE (TRACKING)";
-    hud.style.color = "#38bdf8";
-    hud.style.background = "rgba(56, 189, 248, 0.1)";
-    hud.style.borderColor = "rgba(56, 189, 248, 0.3)";
   });
 
-  // Render loop
-  function draw() {
+  // Slider change detection
+  sensitivityInput.addEventListener("input", (e) => {
+    sensitivityValueText.textContent = parseFloat(e.target.value).toFixed(1);
+  });
+
+  // Loop simulation
+  function loop() {
     ctx.clearRect(0, 0, width, height);
 
-    // Lerp tracking target for natural fluid motion (OneEuroFilter mock-up)
-    currentTarget.x += (mouse.x - currentTarget.x) * 0.15;
-    currentTarget.y += (mouse.y - currentTarget.y) * 0.15;
+    // 1. Draw Virtual Desktop Elements
+    drawVirtualDesktop();
 
-    // Draw coordinate grids
-    drawGrid();
-
-    // 🖐️ Compute joint coordinates dynamically relative to target cursor position
-    const hand = computeHandSkeleton(currentTarget.x, currentTarget.y, isMouseDown);
-
-    // Draw hand skeleton lines
-    drawSkeleton(hand);
-
-    // Draw joint highlights
-    drawJoints(hand);
-
-    // Draw Predictive Kinematics preview (looks ahead of target)
-    drawPredictiveKinematics(currentTarget.x, currentTarget.y);
-
-    requestAnimationFrame(draw);
-  }
-
-  // Draw technological background grid
-  function drawGrid() {
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
-    ctx.lineWidth = 1;
-    const gridSize = 40;
+    // 2. Control values and parameters mapping
+    const sensVal = parseFloat(sensitivityInput.value);
     
-    for (let x = 0; x < width; x += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, height);
-      ctx.stroke();
-    }
-    for (let y = 0; y < height; y += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
-    }
-  }
+    // Lerp factor mapping (Higher sensitivity = higher lerp factor)
+    let lerpFactor = sensVal * 0.038 + 0.015;
 
-  function computeHandSkeleton(tx, ty, clicked) {
-    // Wrist base position (drifts slightly horizontally to mimic arm lag)
-    const wrist = { x: width * 0.5, y: height - 10 };
-    wrist.x += (tx - wrist.x) * 0.35;
-
-    // Angle and distance to target cursor
-    const dx = tx - wrist.x;
-    const dy = ty - wrist.y;
-    const angle = Math.atan2(dy, dx);
-    const dist = Math.hypot(dx, dy);
-
-    // Dynamic scale of hand based on distance from wrist (clamps to human proportions)
-    const maxHandLen = Math.min(200, Math.max(110, dist * 0.8));
-    const palmLen = maxHandLen * 0.45;
-    const fingerLen = maxHandLen * 0.55;
-
-    // Knuckles (MCP joints) positioned radially along the wrist-to-target angle
-    const indexMcp = { 
-      x: wrist.x + Math.cos(angle - 0.12) * palmLen, 
-      y: wrist.y + Math.sin(angle - 0.12) * palmLen 
-    };
-    const middleMcp = { 
-      x: wrist.x + Math.cos(angle - 0.02) * (palmLen * 1.05), 
-      y: wrist.y + Math.sin(angle - 0.02) * (palmLen * 1.05) 
-    };
-    const ringMcp = { 
-      x: wrist.x + Math.cos(angle + 0.08) * palmLen, 
-      y: wrist.y + Math.sin(angle + 0.08) * palmLen 
-    };
-    const pinkyMcp = { 
-      x: wrist.x + Math.cos(angle + 0.18) * (palmLen * 0.95), 
-      y: wrist.y + Math.sin(angle + 0.18) * (palmLen * 0.95) 
-    };
-
-    // 1. Index Finger (reaching towards the cursor)
-    const idx_dx = tx - indexMcp.x;
-    const idx_dy = ty - indexMcp.y;
-    const idx_dist = Math.hypot(idx_dx, idx_dy);
-    const idx_ang = Math.atan2(idx_dy, idx_dx);
-    const idx_ext = Math.min(fingerLen, idx_dist);
-
-    const indexTip = { 
-      x: indexMcp.x + Math.cos(idx_ang) * idx_ext, 
-      y: indexMcp.y + Math.sin(idx_ang) * idx_ext 
-    };
-    const indexPip = { 
-      x: indexMcp.x + (indexTip.x - indexMcp.x) * 0.38, 
-      y: indexMcp.y + (indexTip.y - indexMcp.y) * 0.38 
-    };
-    const indexDip = { 
-      x: indexMcp.x + (indexTip.x - indexMcp.x) * 0.72, 
-      y: indexMcp.y + (indexTip.y - indexMcp.y) * 0.72 
-    };
-
-    // 2. Other fingers (Middle, Ring, Pinky) - fold into palm if clicked
-    let middleTip, ringTip, pinkyTip;
-    const curlFactor = clicked ? 0.38 : 1.0;
-    const curlAngleOffset = clicked ? 0.35 : 0.0;
-
-    middleTip = {
-      x: middleMcp.x + Math.cos(angle - 0.02 + curlAngleOffset) * (fingerLen * 1.06 * curlFactor),
-      y: middleMcp.y + Math.sin(angle - 0.02 + curlAngleOffset) * (fingerLen * 1.06 * curlFactor)
-    };
-    ringTip = {
-      x: ringMcp.x + Math.cos(angle + 0.08 + curlAngleOffset * 1.2) * (fingerLen * 0.96 * curlFactor),
-      y: ringMcp.y + Math.sin(angle + 0.08 + curlAngleOffset * 1.2) * (fingerLen * 0.96 * curlFactor)
-    };
-    pinkyTip = {
-      x: pinkyMcp.x + Math.cos(angle + 0.18 + curlAngleOffset * 1.5) * (fingerLen * 0.76 * curlFactor),
-      y: pinkyMcp.y + Math.sin(angle + 0.18 + curlAngleOffset * 1.5) * (fingerLen * 0.76 * curlFactor)
-    };
-
-    // Interpolate joints for middle, ring, pinky
-    const middlePip = { x: middleMcp.x + (middleTip.x - middleMcp.x) * 0.38, y: middleMcp.y + (middleTip.y - middleMcp.y) * 0.38 };
-    const middleDip = { x: middleMcp.x + (middleTip.x - middleMcp.x) * 0.72, y: middleMcp.y + (middleTip.y - middleMcp.y) * 0.72 };
-    
-    const ringPip = { x: ringMcp.x + (ringTip.x - ringMcp.x) * 0.38, y: ringMcp.y + (ringTip.y - ringMcp.y) * 0.38 };
-    const ringDip = { x: ringMcp.x + (ringTip.x - ringMcp.x) * 0.72, y: ringMcp.y + (ringTip.y - ringMcp.y) * 0.72 };
-
-    const pinkyPip = { x: pinkyMcp.x + (pinkyTip.x - pinkyMcp.x) * 0.38, y: pinkyMcp.y + (pinkyTip.y - pinkyMcp.y) * 0.38 };
-    const pinkyDip = { x: pinkyMcp.x + (pinkyTip.x - pinkyMcp.x) * 0.72, y: pinkyMcp.y + (pinkyTip.y - pinkyMcp.y) * 0.72 };
-
-    // 3. Thumb
-    const thumbMcp = { 
-      x: wrist.x + Math.cos(angle - 0.48) * (palmLen * 0.55), 
-      y: wrist.y + Math.sin(angle - 0.48) * (palmLen * 0.55) 
-    };
-    
-    let thumbTip, thumbPip;
-    if (clicked) {
-      // Pinch state: Thumb tip meets the index tip
-      thumbTip = { x: indexTip.x - 3, y: indexTip.y + 4 };
-      thumbPip = { 
-        x: (thumbMcp.x + thumbTip.x) * 0.5 - Math.cos(angle) * (maxHandLen * 0.12), 
-        y: (thumbMcp.y + thumbTip.y) * 0.5 - Math.sin(angle) * (maxHandLen * 0.12) 
-      };
-    } else {
-      // Idle state: Thumb spreads naturally to the left
-      thumbPip = { 
-        x: thumbMcp.x + Math.cos(angle - 0.48) * (palmLen * 0.42), 
-        y: thumbMcp.y + Math.sin(angle - 0.48) * (palmLen * 0.42) 
-      };
-      thumbTip = { 
-        x: thumbPip.x + Math.cos(angle - 0.75) * (fingerLen * 0.45), 
-        y: thumbPip.y + Math.sin(angle - 0.75) * (fingerLen * 0.45) 
-      };
+    // Sniper mode click viscosity overrides tracking speed
+    const sniperActive = toggleSniper.checked && isMouseDown && isMouseOver;
+    if (sniperActive) {
+      lerpFactor = 0.012; // Very slow coordinate movement
     }
 
-    return {
-      wrist,
-      thumb: [wrist, thumbMcp, thumbPip, thumbTip],
-      index: [wrist, indexMcp, indexPip, indexTip],
-      middle: [wrist, middleMcp, middlePip, middleTip],
-      ring: [wrist, ringMcp, ringPip, ringTip],
-      pinky: [wrist, pinkyMcp, pinkyPip, pinkyTip],
-      palmBase: [indexMcp, middleMcp, ringMcp, pinkyMcp, wrist, indexMcp]
-    };
-  }
+    // Move current target cursor towards user pointer
+    if (isMouseOver) {
+      currentTarget.x += (mouse.x - currentTarget.x) * lerpFactor;
+      currentTarget.y += (mouse.y - currentTarget.y) * lerpFactor;
+    }
 
-  function drawSkeleton(hand) {
-    ctx.lineWidth = 3;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.shadowBlur = 8;
-    ctx.shadowColor = "rgba(139, 92, 246, 0.4)";
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
-
-    const fingers = [hand.thumb, hand.index, hand.middle, hand.ring, hand.pinky, hand.palmBase];
-    fingers.forEach(finger => {
-      ctx.beginPath();
-      ctx.moveTo(finger[0].x, finger[0].y);
-      for (let i = 1; i < finger.length; i++) {
-        ctx.lineTo(finger[i].x, finger[i].y);
+    // 3. Render tracking graphics
+    if (isMouseOver) {
+      // Draw Predictive lookahead line
+      if (togglePredictive.checked) {
+        drawPredictiveKinematics();
       }
-      ctx.stroke();
-    });
-    ctx.shadowBlur = 0;
+
+      // Draw virtual Cursor Dot
+      drawVirtualCursor(sniperActive);
+
+      // Draw Sniper locked Reticle
+      if (sniperActive) {
+        drawSniperLockReticle();
+      }
+    }
+
+    // 4. Update HUD state based on settings and clicks
+    updateMockupHUD(sniperActive);
+
+    requestAnimationFrame(loop);
   }
 
-  function drawJoints(hand) {
-    const allJoints = [
-      ...hand.thumb, ...hand.index, ...hand.middle, ...hand.ring, ...hand.pinky
-    ];
+  // Draw cyber grid and OS desktop mockup elements
+  function drawVirtualDesktop() {
+    // Cyber Grid background
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.015)";
+    ctx.lineWidth = 1;
+    const grid = 25;
+    for (let x = 0; x < width; x += grid) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+    }
+    for (let y = 0; y < height; y += grid) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+    }
 
-    allJoints.forEach((joint) => {
-      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-      ctx.beginPath();
-      ctx.arc(joint.x, joint.y, 3.5, 0, 2 * Math.PI);
-      ctx.fill();
-    });
-
-    // Highlight critical tip nodes
-    const highlights = [
-      { pt: hand.index[3], color: "#38bdf8" }, // Index (blue)
-      { pt: hand.thumb[3], color: "#34d399" }, // Thumb (green)
-      { pt: hand.middle[3], color: "#fb7185" }, // Middle (rose)
-      { pt: hand.wrist, color: "#a78bfa" }      // Wrist (purple)
-    ];
-
-    highlights.forEach(({ pt, color }) => {
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(pt.x, pt.y, 5, 0, 2 * Math.PI);
-      ctx.fill();
-
-      // Outer rings
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(pt.x, pt.y, 10, 0, 2 * Math.PI);
-      ctx.stroke();
-    });
+    // Draw mockup OS file icons (glassmorphism boxes)
+    drawMockupIcon(30, 30, "📁 System");
+    drawMockupIcon(30, 90, "🌐 Browser");
+    drawMockupIcon(30, 150, "🎮 Game.exe");
   }
 
-  // Draw Predictive Kinematics ghost cursor looking ahead
-  function drawPredictiveKinematics(tx, ty) {
-    // Simulate a predictive offset (lookahead) based on current target velocity
-    const dx = mouse.x - tx;
-    const dy = mouse.y - ty;
-    const px = tx + dx * 1.5;
-    const py = ty + dy * 1.5;
-
-    ctx.strokeStyle = "rgba(14, 165, 233, 0.3)";
-    ctx.setLineDash([4, 4]);
-    ctx.lineWidth = 1.5;
-    
-    // Draw line from index tip to predictive point
+  function drawMockupIcon(x, y, label) {
+    ctx.fillStyle = "rgba(255, 255, 255, 0.02)";
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(tx, ty);
+    if (ctx.roundRect) {
+      ctx.roundRect(x, y, 50, 40, 6);
+    } else {
+      ctx.rect(x, y, 50, 40);
+    }
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(148, 163, 184, 0.6)";
+    ctx.font = "8px Outfit";
+    ctx.textAlign = "center";
+    ctx.fillText(label, x + 25, y + 52);
+    ctx.textAlign = "left"; // reset
+  }
+
+  function drawVirtualCursor(clicked) {
+    // Glow shadow
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = clicked ? "rgba(16, 185, 129, 0.6)" : "rgba(14, 165, 233, 0.6)";
+    
+    // Core Cursor pointer (neon arrowhead shape)
+    ctx.fillStyle = clicked ? "#10b981" : "#0ea5e9";
+    ctx.beginPath();
+    ctx.moveTo(currentTarget.x, currentTarget.y);
+    ctx.lineTo(currentTarget.x + 8, currentTarget.y + 12);
+    ctx.lineTo(currentTarget.x + 3, currentTarget.y + 11);
+    ctx.lineTo(currentTarget.x, currentTarget.y + 16);
+    ctx.closePath();
+    ctx.fill();
+    
+    ctx.shadowBlur = 0; // reset
+  }
+
+  function drawPredictiveKinematics() {
+    const dx = mouse.x - currentTarget.x;
+    const dy = mouse.y - currentTarget.y;
+    
+    // Prediction lookahead vector
+    const px = currentTarget.x + dx * 1.5;
+    const py = currentTarget.y + dy * 1.5;
+
+    ctx.strokeStyle = "rgba(14, 165, 233, 0.35)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 3]);
+
+    ctx.beginPath();
+    ctx.moveTo(currentTarget.x, currentTarget.y);
     ctx.lineTo(px, py);
     ctx.stroke();
-    
-    // Draw predictive circle
-    ctx.beginPath();
-    ctx.arc(px, py, 6, 0, 2 * Math.PI);
-    ctx.stroke();
-    
-    ctx.fillStyle = "rgba(14, 165, 233, 0.5)";
-    ctx.font = "9px Outfit";
-    ctx.fillText("PREDICTION (45ms)", px + 12, py + 3);
     ctx.setLineDash([]);
+
+    // Prediction point circle
+    ctx.strokeStyle = "rgba(14, 165, 233, 0.65)";
+    ctx.beginPath();
+    ctx.arc(px, py, 3, 0, 2 * Math.PI);
+    ctx.stroke();
+
+    if (Math.hypot(dx, dy) > 3) {
+      ctx.fillStyle = "rgba(14, 165, 233, 0.5)";
+      ctx.font = "7px monospace";
+      ctx.fillText("PRED +45ms", px + 8, py + 3);
+    }
   }
 
-  draw();
+  function drawSniperLockReticle() {
+    const angle = Date.now() * 0.007;
+    ctx.strokeStyle = "rgba(16, 185, 129, 0.7)";
+    ctx.lineWidth = 1;
+    
+    // Outer rotating reticle
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.arc(currentTarget.x, currentTarget.y, 16, angle, angle + 2 * Math.PI);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Inner crosshair target
+    ctx.beginPath();
+    ctx.arc(currentTarget.x, currentTarget.y, 6, 0, 2 * Math.PI);
+    ctx.stroke();
+
+    // Small lock-on text
+    ctx.fillStyle = "rgba(16, 185, 129, 0.8)";
+    ctx.font = "8px Outfit";
+    ctx.fillText("LOCK ON", currentTarget.x + 20, currentTarget.y - 4);
+  }
+
+  function updateMockupHUD(sniperActive) {
+    if (!toggleGate.checked) {
+      screenHud.textContent = "FILTER OFF";
+      screenHud.style.color = "#ef4444";
+      screenHud.style.background = "rgba(239, 68, 68, 0.1)";
+      screenHud.style.borderColor = "rgba(239, 68, 68, 0.3)";
+    } else if (sniperActive) {
+      screenHud.textContent = "LOCKED";
+      screenHud.style.color = "#10b981";
+      screenHud.style.background = "rgba(16, 185, 129, 0.15)";
+      screenHud.style.borderColor = "rgba(16, 185, 129, 0.4)";
+    } else {
+      screenHud.textContent = "PASS";
+      screenHud.style.color = "#38bdf8";
+      screenHud.style.background = "rgba(56, 189, 248, 0.1)";
+      screenHud.style.borderColor = "rgba(56, 189, 248, 0.3)";
+    }
+  }
+
+  loop();
 }

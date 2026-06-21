@@ -473,3 +473,103 @@ progress::-webkit-progress-value {
     justify-items: stretch;
   }
 }
+
+/* ⚠️ macOS Accessibility Permission Banner */
+.accessibility-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  background: rgba(255, 149, 0, 0.1);
+  border: 1px solid rgba(255, 149, 0, 0.25);
+  border-radius: 8px;
+  padding: 12px 18px;
+  margin-bottom: 16px;
+  backdrop-filter: blur(10px);
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.banner-icon {
+  font-size: 18px;
+}
+
+.accessibility-banner p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #a15c00;
+}
+
+.accessibility-banner code {
+  background: rgba(255, 149, 0, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-weight: 700;
+  margin: 0 4px;
+}
+
+.banner-close-btn {
+  background: transparent;
+  border: 0;
+  font-size: 20px;
+  color: #a15c00;
+  cursor: pointer;
+  padding: 0 4px;
+  transition: opacity 0.2s ease;
+}
+
+.banner-close-btn:hover {
+  opacity: 0.7;
+}
+
+/* 📷 Camera Dropdown Switcher */
+.camera-control-box {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.camera-select-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+  backdrop-filter: blur(22px);
+}
+
+.camera-select-container label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #007aff;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.camera-dropdown {
+  width: 100%;
+  min-height: 38px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #ffffff;
+  padding: 0 12px;
+  font-size: 14px;
+  color: #1d1d1f;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.camera-dropdown:focus {
+  border-color: #007aff;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+}
