@@ -1,98 +1,211 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[cfg(not(target_os = "windows"))]
 use enigo::{Enigo, MouseControllable, MouseButton, KeyboardControllable, Key};
 use tauri::Manager;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{TrayIconBuilder, TrayIconEvent};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, Modifiers, Code, ShortcutState};
 
+#[cfg(target_os = "windows")]
+mod win_mouse {
+    use std::mem::size_of;
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+        SendInput, INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_LEFTDOWN,
+        MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MOVE, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP,
+        MOUSEEVENTF_WHEEL, MOUSEINPUT,
+    };
+    use windows_sys::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN};
+
+    fn send_mouse_input(dx: i32, dy: i32, flags: u32, mouse_data: u32) -> Result<(), String> {
+        let mut input = INPUT {
+            r#type: INPUT_MOUSE,
+            Anonymous: INPUT_0 {
+                mi: MOUSEINPUT {
+                    dx,
+                    dy,
+                    mouseData: mouse_data,
+                    dwFlags: flags,
+                    time: 0,
+                    dwExtraInfo: 0,
+                },
+            },
+        };
+
+        let sent = unsafe { SendInput(1, &mut input, size_of::<INPUT>() as i32) };
+        if sent == 1 {
+            Ok(())
+        } else {
+            Err("SendInput failed".to_string())
+        }
+    }
+
+    pub fn win_move_mouse(x: i32, y: i32) {
+        let width = unsafe { GetSystemMetrics(SM_CXSCREEN) };
+        let height = unsafe { GetSystemMetrics(SM_CYSCREEN) };
+        if width <= 1 || height <= 1 {
+            return;
+        }
+
+        let normalized_x = (x.clamp(0, width - 1) * 65_535) / (width - 1);
+        let normalized_y = (y.clamp(0, height - 1) * 65_535) / (height - 1);
+        let _ = send_mouse_input(normalized_x, normalized_y, MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE, 0);
+    }
+
+    pub fn win_click_mouse(button: String, count: i32) {
+        let (down_flag, up_flag) = match button.as_str() {
+            "right" => (MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP),
+            _ => (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP),
+        };
+
+        for _ in 0..count {
+            let _ = send_mouse_input(0, 0, down_flag, 0);
+            let _ = send_mouse_input(0, 0, up_flag, 0);
+        }
+    }
+
+    pub fn win_set_drag(button: String, is_dragging: bool) {
+        let flag = match button.as_str() {
+            "right" => {
+                if is_dragging { MOUSEEVENTF_RIGHTDOWN } else { MOUSEEVENTF_RIGHTUP }
+            }
+            _ => {
+                if is_dragging { MOUSEEVENTF_LEFTDOWN } else { MOUSEEVENTF_LEFTUP }
+            }
+        };
+        let _ = send_mouse_input(0, 0, flag, 0);
+    }
+
+    pub fn win_scroll_mouse(dy: i32) {
+        const WHEEL_DELTA: i32 = 120;
+        if dy == 0 {
+            return;
+        }
+
+        let _ = send_mouse_input(
+            0,
+            0,
+            MOUSEEVENTF_WHEEL,
+            (dy * WHEEL_DELTA) as u32,
+        );
+    }
+}
+
 #[tauri::command]
 fn move_mouse(x: i32, y: i32) {
-    let mut enigo = Enigo::new();
-    enigo.mouse_move_to(x, y);
+    #[cfg(target_os = "windows")]
+    {
+        win_mouse::win_move_mouse(x, y);
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let mut enigo = Enigo::new();
+        enigo.mouse_move_to(x, y);
+    }
 }
 
 #[tauri::command]
 fn click_mouse(button: String, count: i32) {
-    let mut enigo = Enigo::new();
-    let b = match button.as_str() {
-        "right" => MouseButton::Right,
-        _ => MouseButton::Left,
-    };
-    
-    for _ in 0..count {
-        enigo.mouse_click(b);
+    #[cfg(target_os = "windows")]
+    {
+        win_mouse::win_click_mouse(button, count);
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let mut enigo = Enigo::new();
+        let b = match button.as_str() {
+            "right" => MouseButton::Right,
+            _ => MouseButton::Left,
+        };
+        
+        for _ in 0..count {
+            enigo.mouse_click(b);
+        }
     }
 }
 
 #[tauri::command]
 fn set_drag(button: String, is_dragging: bool) {
-    let mut enigo = Enigo::new();
-    let b = match button.as_str() {
-        "right" => MouseButton::Right,
-        _ => MouseButton::Left,
-    };
+    #[cfg(target_os = "windows")]
+    {
+        win_mouse::win_set_drag(button, is_dragging);
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let mut enigo = Enigo::new();
+        let b = match button.as_str() {
+            "right" => MouseButton::Right,
+            _ => MouseButton::Left,
+        };
 
-    if is_dragging {
-        enigo.mouse_down(b);
-    } else {
-        enigo.mouse_up(b);
+        if is_dragging {
+            enigo.mouse_down(b);
+        } else {
+            enigo.mouse_up(b);
+        }
     }
 }
 
 #[tauri::command]
 fn scroll_mouse(dy: i32) {
-    #[cfg(target_os = "macos")]
+    #[cfg(target_os = "windows")]
     {
-        use std::os::raw::c_void;
-        type CGEventRef = *mut c_void;
-        type CGEventSourceRef = *mut c_void;
+        win_mouse::win_scroll_mouse(dy);
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        #[cfg(target_os = "macos")]
+        {
+            use std::os::raw::c_void;
+            type CGEventRef = *mut c_void;
+            type CGEventSourceRef = *mut c_void;
 
-        #[link(name = "CoreGraphics", kind = "framework")]
-        extern "C" {
-            fn CGEventCreateScrollWheelEvent(
-                source: CGEventSourceRef,
-                units: u32,
-                wheelCount: u32,
-                wheel1: i32,
-                ...
-            ) -> CGEventRef;
-            fn CGEventPost(tap: u32, event: CGEventRef);
-            fn CFRelease(obj: *mut c_void);
-        }
+            #[link(name = "CoreGraphics", kind = "framework")]
+            extern "C" {
+                fn CGEventCreateScrollWheelEvent(
+                    source: CGEventSourceRef,
+                    units: u32,
+                    wheelCount: u32,
+                    wheel1: i32,
+                    ...
+                ) -> CGEventRef;
+                fn CGEventPost(tap: u32, event: CGEventRef);
+                fn CFRelease(obj: *mut c_void);
+            }
 
-        unsafe {
-            // units: 1 = kCGScrollEventUnitLine (맥북 스크롤 인식을 위해 라인 단위로 복구)
-            // 미세 스크롤 휠 가속 보완을 위해 3을 곱합니다.
-            let scroll_lines = dy * 3;
-            let event = CGEventCreateScrollWheelEvent(
-                std::ptr::null_mut(),
-                1, // kCGScrollEventUnitLine = 1
-                1, // wheelCount = 1
-                scroll_lines,
-            );
-            if !event.is_null() {
-                // kCGSessionEventTap = 1 을 사용하여 Accessibility 권한 하에 전역 활성 세션에 정확히 마우스 휠 이벤트 주입
-                CGEventPost(1, event); 
-                CFRelease(event);
+            unsafe {
+                let scroll_lines = dy * 3;
+                let event = CGEventCreateScrollWheelEvent(
+                    std::ptr::null_mut(),
+                    1, // kCGScrollEventUnitLine = 1
+                    1, // wheelCount = 1
+                    scroll_lines,
+                );
+                if !event.is_null() {
+                    CGEventPost(1, event); 
+                    CFRelease(event);
+                }
             }
         }
-    }
 
-    #[cfg(not(target_os = "macos"))]
-    {
-        let mut enigo = Enigo::new();
-        enigo.mouse_scroll_y(dy);
+        #[cfg(not(target_os = "macos"))]
+        {
+            let mut enigo = Enigo::new();
+            enigo.mouse_scroll_y(dy);
+        }
     }
 }
 
 #[tauri::command]
 fn trigger_mission_control() {
-    let mut enigo = Enigo::new();
-    enigo.key_down(Key::Control);
-    enigo.key_click(Key::UpArrow);
-    enigo.key_up(Key::Control);
+    #[cfg(target_os = "macos")]
+    {
+        let mut enigo = Enigo::new();
+        enigo.key_down(Key::Control);
+        enigo.key_click(Key::UpArrow);
+        enigo.key_up(Key::Control);
+    }
 }
 
 #[tauri::command]
