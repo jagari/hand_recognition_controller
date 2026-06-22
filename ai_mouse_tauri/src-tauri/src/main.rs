@@ -149,51 +149,15 @@ fn set_drag(button: String, is_dragging: bool) {
 
 #[tauri::command]
 fn scroll_mouse(dy: i32) {
+    println!("[Rust] scroll_mouse called: dy={}", dy);
     #[cfg(target_os = "windows")]
     {
         win_mouse::win_scroll_mouse(dy);
     }
     #[cfg(not(target_os = "windows"))]
     {
-        #[cfg(target_os = "macos")]
-        {
-            use std::os::raw::c_void;
-            type CGEventRef = *mut c_void;
-            type CGEventSourceRef = *mut c_void;
-
-            #[link(name = "CoreGraphics", kind = "framework")]
-            extern "C" {
-                fn CGEventCreateScrollWheelEvent(
-                    source: CGEventSourceRef,
-                    units: u32,
-                    wheelCount: u32,
-                    wheel1: i32,
-                    ...
-                ) -> CGEventRef;
-                fn CGEventPost(tap: u32, event: CGEventRef);
-                fn CFRelease(obj: *mut c_void);
-            }
-
-            unsafe {
-                let scroll_lines = dy * 3;
-                let event = CGEventCreateScrollWheelEvent(
-                    std::ptr::null_mut(),
-                    1, // kCGScrollEventUnitLine = 1
-                    1, // wheelCount = 1
-                    scroll_lines,
-                );
-                if !event.is_null() {
-                    CGEventPost(0, event); // kCGHIDEventTap = 0 (전역 스크롤 이벤트 수신에 필수)
-                    CFRelease(event);
-                }
-            }
-        }
-
-        #[cfg(not(target_os = "macos"))]
-        {
-            let mut enigo = Enigo::new();
-            enigo.mouse_scroll_y(dy);
-        }
+        let mut enigo = Enigo::new();
+        enigo.mouse_scroll_y(dy * 3);
     }
 }
 
