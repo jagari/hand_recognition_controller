@@ -132,6 +132,12 @@ html {
   color: var(--text-primary);
 }
 
+.nav-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .nav-btn {
   background: linear-gradient(135deg, var(--accent-cyan), var(--accent-violet));
   color: white;
