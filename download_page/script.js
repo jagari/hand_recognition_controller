@@ -3,6 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
   detectOSAndUpdateButton();
   initPortal();
   initMacModal();
+  loadDynamicChangelog();
 });
 
 function detectOSAndUpdateButton() {
@@ -614,4 +615,120 @@ function initMacModal() {
       });
     });
   }
+}
+
+// 🚀 GitHub Releases API 연동을 통한 동적 업데이트 로그 로딩
+async function loadDynamicChangelog() {
+  const changelogContainer = document.querySelector(".changelog-timeline");
+  if (!changelogContainer) return;
+
+  try {
+    // 1. 메인 macOS 레포지토리에서 릴리즈 리스트 조회 시도
+    let response = await fetch("https://api.github.com/repos/jagari/hand_recognition_controller/releases");
+    let releases = [];
+    if (response.ok) {
+      releases = await response.json();
+    }
+
+    // 2. 메인 레포에 릴리즈가 없다면, Windows 레포에서 조회 시도
+    if (!releases || releases.length === 0) {
+      response = await fetch("https://api.github.com/repos/cksdyd3786/god-hand/releases");
+      if (response.ok) {
+        releases = await response.json();
+      }
+    }
+
+    if (!releases || releases.length === 0) return;
+
+    // 기존 스태틱 업데이트 히스토리 초기화
+    changelogContainer.innerHTML = "";
+
+    // 최신 3개의 릴리즈 노트 표시
+    const maxReleases = Math.min(releases.length, 3);
+    for (let i = 0; i < maxReleases; i++) {
+      const release = releases[i];
+      const tag = release.tag_name;
+      const title = release.name || tag;
+      const dateRaw = new Date(release.published_at);
+      const dateFormatted = `${dateRaw.getFullYear()}.${String(dateRaw.getMonth() + 1).padStart(2, '0')}.${String(dateRaw.getDate()).padStart(2, '0')}`;
+      
+      const htmlContent = parseMarkdownToHTML(release.body);
+
+      const changelogItem = document.createElement("div");
+      changelogItem.className = "changelog-item";
+      if (i > 0) {
+        changelogItem.style.marginTop = "24px";
+      }
+
+      changelogItem.innerHTML = `
+        <div class="changelog-meta">
+          <span class="version-badge">${tag} Stable</span>
+          <span class="changelog-date">${dateFormatted}</span>
+        </div>
+        <div class="changelog-body">
+          <h4>${title}</h4>
+          <div class="markdown-body-rendered">
+            ${htmlContent}
+          </div>
+        </div>
+      `;
+      changelogContainer.appendChild(changelogItem);
+    }
+  } catch (err) {
+    console.warn("GitHub Releases API 업데이트 로그 로딩 실패 (로컬 스태틱 데이터 유지):", err);
+  }
+}
+
+//  Markdown 문법을 간단한 HTML 코드로 치환하는 파서 함수
+function parseMarkdownToHTML(markdown) {
+  if (!markdown) return "";
+  
+  // HTML 태그 이스케이프 처리 (보안 대책)
+  let html = markdown
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+    
+  // 제목 변환 (###, #### 등)
+  html = html.replace(/^#### (.*?)$/gm, '<h5>$1</h5>');
+  html = html.replace(/^### (.*?)$/gm, '<h4>$1</h4>');
+  html = html.replace(/^## (.*?)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^# (.*?)$/gm, '<h2>$1</h2>');
+  
+  // 굵은 글씨 변환 (**text** 또는 __text__)
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
+  
+  // 기울임꼴 변환 (*text* 또는 _text_)
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  html = html.replace(/_(.*?)_/g, '<em>$1</em>');
+
+  // 인라인 코드 변환 (`code`)
+  html = html.replace(/`(.*?)`/g, '<code>$1</code>');
+  
+  // 글머리 기호 목록 변환 (- 목록 또는 * 목록)
+  let lines = html.split('\n');
+  let inList = false;
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i].trim();
+    if (line.startsWith('- ') || line.startsWith('* ')) {
+      let content = line.substring(2);
+      if (!inList) {
+        lines[i] = '<ul><li>' + content + '</li>';
+        inList = true;
+      } else {
+        lines[i] = '<li>' + content + '</li>';
+      }
+    } else {
+      if (inList) {
+        lines[i] = '</ul>' + lines[i];
+        inList = false;
+      }
+    }
+  }
+  if (inList) {
+    lines.push('</ul>');
+  }
+  
+  return lines.join('\n');
 }
