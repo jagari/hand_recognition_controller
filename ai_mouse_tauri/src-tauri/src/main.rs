@@ -183,7 +183,7 @@ fn scroll_mouse(dy: i32) {
                     scroll_lines,
                 );
                 if !event.is_null() {
-                    CGEventPost(1, event); 
+                    CGEventPost(0, event); // kCGHIDEventTap = 0 (전역 스크롤 이벤트 수신에 필수)
                     CFRelease(event);
                 }
             }
